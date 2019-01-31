@@ -9,11 +9,13 @@
 AudioProccessor::AudioProccessor(AVCodecContext* pCodecCtx) {
     pQueue = new PacketQueue();
     pAVCodecCtx = pCodecCtx;
-    pthread_mutex_init(&adapterPcmMutex, NULL);
 }
 
 AudioProccessor::~AudioProccessor() {
-    delete pQueue;
+    if (NULL != pQueue) {
+        delete pQueue;
+    }
+    pQueue = NULL;
     if (NULL != buffer) {
         av_free(buffer);
         buffer = NULL;
@@ -21,13 +23,13 @@ AudioProccessor::~AudioProccessor() {
     if (NULL != pAVCodecCtx) {
         pAVCodecCtx = NULL;
     }
-    pthread_mutex_destroy(&adapterPcmMutex);
 }
 
 void AudioProccessor::start() {
     LOGI("AudioProccessor::start");
     prepareSLEngien();
     prepareSLOutputMixAndPlay();
+    LOGI("AudioProccessor::start end");
 }
 
 void AudioProccessor::pause() {
@@ -183,7 +185,6 @@ bool AudioProccessor::prepareSLOutputMixAndPlay() {
 }
 
 void methodBufferCallBack(SLAndroidSimpleBufferQueueItf bf, void * context) {
-    LOGI("methodBufferCallBack");
     AudioProccessor *pPlayer = (AudioProccessor*) context;
     int pcmSize = 0;
     if (NULL != pPlayer) {
@@ -193,8 +194,6 @@ void methodBufferCallBack(SLAndroidSimpleBufferQueueItf bf, void * context) {
             if (PlaySession::getIns()->currentClock - PlaySession::getIns()->lastClock >= PlaySession::TIME_INTERVAL) {
                 PlaySession::getIns()->lastClock = PlaySession::getIns()->currentClock;
                 //TODO[truyayong] 时间回调到应用层
-                LOGE("[truyayong] current : %f, tol : %d", PlaySession::getIns()->currentClock
-                , PlaySession::getIns()->duration);
                 NotifyApplication::getIns()->notifyProgress(CHILD_THREAD, PlaySession::getIns()->currentClock, PlaySession::getIns()->duration);
             }
         }

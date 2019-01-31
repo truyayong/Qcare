@@ -25,9 +25,13 @@ extern "C" {
 class AvCodecProccessor {
 private:
     AVFormatContext* pAVFormatCtx = NULL;
-    int mStreamIndex = -1;
-    AVCodecContext* pAVCodecCtx = NULL;
-    AVCodecParameters* pCodecPara = NULL;
+    int mAudioStreamIndex = -1;
+    AVCodecContext* pAudioCodecCtx = NULL;
+    AVCodecParameters* pAudioCodecPara = NULL;
+
+    int mVideoStreamIndex = -1;
+    AVCodecContext* pVideoCodecCtx = NULL;
+    AVCodecParameters* pVideoCodecPara = NULL;
 
 
 public:
@@ -40,7 +44,7 @@ public:
     pthread_t startDecodeThread;
 
 private:
-
+    int initAVCoderctx(int* pIndex, AVCodecContext** ppAvCodecCtx, AVCodecParameters** ppAvCodecpara, AVMediaType type);
 public:
     AvCodecProccessor();
     virtual ~AvCodecProccessor();

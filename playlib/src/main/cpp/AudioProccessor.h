@@ -48,7 +48,6 @@ private:
 
 public:
     PacketQueue* pQueue = NULL;
-    pthread_mutex_t adapterPcmMutex;
     //播放缓冲队列
     SLAndroidSimpleBufferQueueItf  pcmBufQueueItf = NULL;
     uint8_t *pOutBuf = NULL;

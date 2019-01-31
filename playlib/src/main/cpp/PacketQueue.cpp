@@ -5,11 +5,13 @@
 #include "PacketQueue.h"
 
 PacketQueue::PacketQueue() {
+    LOGI("PacketQueue::PacketQueue");
     pthread_mutex_init(&mMutex, NULL);
     pthread_cond_init(&mCond, NULL);
 }
 
 PacketQueue::~PacketQueue() {
+    LOGI("PacketQueue::~PacketQueue");
     clearQueue();
     pthread_cond_destroy(&mCond);
     pthread_mutex_destroy(&mMutex);
@@ -52,6 +54,7 @@ int PacketQueue::size() {
 }
 
 void PacketQueue::clearQueue() {
+    LOGI("PacketQueue::clearQueue");
     pthread_cond_signal(&mCond);
     pthread_mutex_lock(&mMutex);
     while (!mQueue.empty()) {

@@ -6,10 +6,32 @@
 #include "AvCodecProccessor.h"
 
 AvCodecProccessor::AvCodecProccessor() {
+    LOGI("AvCodecProccessor::AvCodecProccessor");
     pthread_mutex_init(&prepareDecodeMutex, NULL);
 }
 
 AvCodecProccessor::~AvCodecProccessor() {
+    LOGI("AvCodecProccessor::~AvCodecProccessor");
+    if (NULL != pAudioCodecCtx) {
+        avcodec_close(pAudioCodecCtx);
+        avcodec_free_context(&pAudioCodecCtx);
+        pAudioCodecCtx = NULL;
+    }
+    pAudioCodecPara = NULL;
+
+    if (NULL != pVideoCodecCtx) {
+        avcodec_close(pVideoCodecCtx);
+        avcodec_free_context(&pVideoCodecCtx);
+        pVideoCodecCtx = NULL;
+    }
+    pVideoCodecPara = NULL;
+
+    if (NULL != pAVFormatCtx) {
+        avformat_close_input(&pAVFormatCtx);
+        avformat_free_context(pAVFormatCtx);
+        pAVFormatCtx = NULL;
+    }
+
     pthread_mutex_destroy(&prepareDecodeMutex);
 }
 
@@ -46,7 +68,6 @@ void AvCodecProccessor::prepareDecoder() {
     pAVFormatCtx = avformat_alloc_context();
     pAVFormatCtx->interrupt_callback.callback = avFormatOpenInterruptCallback;
     pAVFormatCtx->interrupt_callback.opaque = NULL;
-    LOGI("AvCodecProccessor::prepareDecoder done222 url : %s ", PlaySession::getIns()->getUrl());
     int ret = avformat_open_input(&pAVFormatCtx
             , PlaySession::getIns()->getUrl(), NULL, NULL);
     if (ret != 0) {
@@ -56,7 +77,6 @@ void AvCodecProccessor::prepareDecoder() {
         pthread_mutex_unlock(&prepareDecodeMutex);
         return;
     }
-    LOGI("AvCodecProccessor::prepareDecoder done333");
     ret = avformat_find_stream_info(pAVFormatCtx, NULL);
     if (ret < 0) {
         LOGE("AvCodecProccessor::prepareDecoder avformat_find_stream_info err : %s", ErrUtil::errLog(ret));
@@ -65,59 +85,76 @@ void AvCodecProccessor::prepareDecoder() {
         pthread_mutex_unlock(&prepareDecodeMutex);
         return;
     }
-    LOGI("AvCodecProccessor::prepareDecoder done444");
+    if (initAVCoderctx(&mAudioStreamIndex, &pAudioCodecCtx, &pAudioCodecPara, AVMEDIA_TYPE_AUDIO) != 0) {
+        PlaySession::getIns()->bExit = true;
+        pthread_mutex_unlock(&prepareDecodeMutex);
+        return;
+    }
+//    if (initAVCoderctx(&mVideoStreamIndex, &pVideoCodecCtx, &pVideoCodecPara, AVMEDIA_TYPE_VIDEO) != 0) {
+//        PlaySession::getIns()->bExit = true;
+//        pthread_mutex_unlock(&prepareDecodeMutex);
+//        return;
+//    }
+    audioProccessor = new AudioProccessor(pAudioCodecCtx);
+    pthread_mutex_unlock(&prepareDecodeMutex);
+    NotifyApplication::getIns()->notifyPrepared(CHILD_THREAD);
+    LOGI("AvCodecProccessor::prepareDecoder end");
+}
+
+int AvCodecProccessor::initAVCoderctx(int *pIndex, AVCodecContext **ppAvCodecCtx,
+                                       AVCodecParameters **ppAvCodecpara, AVMediaType type) {
+    LOGI("AvCodecProccessor::initAVCoderctx type : %d", type);
+    int ret = 0;
     for (int i = 0; i < pAVFormatCtx->nb_streams; i++) {
-        if (pAVFormatCtx->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_AUDIO) {
-            mStreamIndex = i;
-            pCodecPara = pAVFormatCtx->streams[i]->codecpar;
+        if (pAVFormatCtx->streams[i]->codecpar->codec_type == type) {
+            *pIndex = i;
+            *ppAvCodecpara = pAVFormatCtx->streams[i]->codecpar;
             PlaySession::getIns()->duration = pAVFormatCtx->duration / AV_TIME_BASE;
             PlaySession::getIns()->timeBase = pAVFormatCtx->streams[i]->time_base;
-            PlaySession::getIns()->inSampleRate = pCodecPara->sample_rate;
+            PlaySession::getIns()->inSampleRate = pAudioCodecPara->sample_rate;
         }
     }
-    LOGI("AvCodecProccessor::prepareDecoder done555");
-    AVCodec* codec = avcodec_find_decoder(pCodecPara->codec_id);
+
+    if (NULL == *ppAvCodecpara) {
+        LOGE("AvCodecProccessor::prepareDecoder pAVFormatCtx can not find codecpar");
+        ret = -1002;
+        NotifyApplication::getIns()->notifyError(CHILD_THREAD, ret, "pAVFormatCtx can not find codecpar");
+        //[TODO]truyayong error code
+        return ret;
+    }
+    AVCodec* codec = avcodec_find_decoder((*ppAvCodecpara)->codec_id);
     if (!codec) {
         LOGE("AvCodecProccessor::prepareDecoder avcodec_find_decoder is null ");
-        NotifyApplication::getIns()->notifyError(CHILD_THREAD, ret, ErrUtil::errLog(ret));
-        PlaySession::getIns()->bExit = true;
-        pthread_mutex_unlock(&prepareDecodeMutex);
-        return;
+        ret = -1000;
+        NotifyApplication::getIns()->notifyError(CHILD_THREAD, ret, "avcodec_find_decoder is null");
+        //[TODO]truyayong error code
+        return ret;
     }
-    LOGI("AvCodecProccessor::prepareDecoder done666");
-    pAVCodecCtx = avcodec_alloc_context3(codec);
-    if (!pAVCodecCtx) {
+    *ppAvCodecCtx = avcodec_alloc_context3(codec);
+    if (!*ppAvCodecCtx) {
         LOGE("AvCodecProccessor::prepareDecoder avcodec_alloc_context3 is null ");
-        NotifyApplication::getIns()->notifyError(CHILD_THREAD, ret, ErrUtil::errLog(ret));
-        PlaySession::getIns()->bExit = true;
-        pthread_mutex_unlock(&prepareDecodeMutex);
-        return;
+        ret = -1001;
+        NotifyApplication::getIns()->notifyError(CHILD_THREAD, ret, "avcodec_alloc_context3 is null");
+        //[TODO]truyayong error code
+        return ret;
     }
-    LOGI("AvCodecProccessor::prepareDecoder done777");
-    ret = avcodec_parameters_to_context(pAVCodecCtx, pCodecPara);
+    ret = avcodec_parameters_to_context(*ppAvCodecCtx, *ppAvCodecpara);
     if (ret < 0) {
         LOGE("AvCodecProccessor::prepareDecoder avcodec_parameters_from_context err : %s", ErrUtil::errLog(ret));
         NotifyApplication::getIns()->notifyError(CHILD_THREAD, ret, ErrUtil::errLog(ret));
-        PlaySession::getIns()->bExit = true;
-        pthread_mutex_unlock(&prepareDecodeMutex);
-        return;
+        return ret;
     }
 
-    ret = avcodec_open2(pAVCodecCtx, codec, NULL);
+    ret = avcodec_open2(*ppAvCodecCtx, codec, NULL);
     if (ret < 0) {
         LOGE("AvCodecProccessor::prepareDecoder avcodec_open2 err : %s", ErrUtil::errLog(ret));
         NotifyApplication::getIns()->notifyError(CHILD_THREAD, ret, ErrUtil::errLog(ret));
-        PlaySession::getIns()->bExit = true;
-        pthread_mutex_unlock(&prepareDecodeMutex);
-        return;
+        return ret;
     }
-
-    audioProccessor = new AudioProccessor(pAVCodecCtx);
-    pthread_mutex_unlock(&prepareDecodeMutex);
-    LOGI("AvCodecProccessor::prepareDecoder done111");
-    NotifyApplication::getIns()->notifyPrepared(CHILD_THREAD);
-    LOGI("AvCodecProccessor::prepareDecoder done");
+    LOGI("AvCodecProccessor::initAVCoderctx type : %d end", type);
+    return 0;
 }
+
 void* startDecodeRunnable(void* data) {
     AvCodecProccessor* pCoder = (AvCodecProccessor*) data;
     if (NULL != pCoder) {
@@ -142,7 +179,8 @@ void AvCodecProccessor::start() {
 void AvCodecProccessor::startDecoder() {
     LOGI("AvCodecProccessor::startDecoder");
     int count = 0;
-    while (!PlaySession::getIns()->bExit) {
+    while (!PlaySession::getIns()->bExit && NULL != audioProccessor
+           && NULL != pAVFormatCtx) {
         if (PlaySession::getIns()->bSeeking) {
             av_usleep(1000 * 100);
             continue;
@@ -154,7 +192,7 @@ void AvCodecProccessor::startDecoder() {
         AVPacket* avPacket = av_packet_alloc();
         int ret = av_read_frame(pAVFormatCtx, avPacket);
         if (ret == 0) {
-            if (avPacket->stream_index == mStreamIndex) {
+            if (avPacket->stream_index == mAudioStreamIndex) {
                 count++;
                 audioProccessor->pQueue->putAvPacket(avPacket);
             } else {
@@ -176,6 +214,7 @@ void AvCodecProccessor::startDecoder() {
             }
         }
     }
+    LOGI("AvCodecProccessor::startDecoder end");
 }
 
 int AvCodecProccessor::getSampleRate() {
@@ -203,7 +242,7 @@ void AvCodecProccessor::seek(int64_t second) {
             audioProccessor->pQueue->clearQueue();
         }
         int64_t rel = second * AV_TIME_BASE;
-        avcodec_flush_buffers(pAVCodecCtx);
+        avcodec_flush_buffers(pAudioCodecCtx);
         avformat_seek_file(pAVFormatCtx, -1, INT64_MIN, rel, INT64_MAX, 0);
         PlaySession::getIns()->bSeeking = false;
     }
@@ -244,4 +283,5 @@ void AvCodecProccessor::setSpeed(float speed) {
         audioProccessor->setSpeed(speed);
     }
 }
+
 
