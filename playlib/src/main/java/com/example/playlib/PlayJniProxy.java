@@ -224,7 +224,7 @@ public class PlayJniProxy {
      * @param total
      */
     private void onPlayProgress(float currentProgress, int total) {
-        Log.i(TAG, "qmusic onPlayProgress currentProgress : " + currentProgress + " Total : " + total);
+//        Log.i(TAG, "qmusic onPlayProgress currentProgress : " + currentProgress + " Total : " + total);
         if (mPlayProgressCallBack != null) {
             mPlayProgressCallBack.onPlayProgress(currentProgress, total);
         }
@@ -240,6 +240,10 @@ public class PlayJniProxy {
         if (mPlayProgressCallBack != null) {
             mPlayProgressCallBack.onError(code, msg);
         }
+    }
+
+    private void onRenderYUV(int width, int height, byte[] y, byte[] u, byte[] v) {
+        Log.i(TAG, "qmusic onRenderYUV ");
     }
 
     /************************************************************************************************************************

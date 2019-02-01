@@ -48,6 +48,8 @@ private:
 
 public:
     PacketQueue* pQueue = NULL;
+    //开始播放线程
+    pthread_t startPlayThread;
     //播放缓冲队列
     SLAndroidSimpleBufferQueueItf  pcmBufQueueItf = NULL;
     uint8_t *pOutBuf = NULL;
@@ -74,6 +76,7 @@ public:
     virtual ~AudioProccessor();
 
     void start();
+    void play();
     void pause();
     void resume();
     void stop();

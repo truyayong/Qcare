@@ -12,6 +12,7 @@
 #include "NotifyApplication.h"
 #include "PacketQueue.h"
 #include "AudioProccessor.h"
+#include "VideoProccessor.h"
 
 extern "C" {
 #include <libavformat/avformat.h>
@@ -36,11 +37,11 @@ private:
 
 public:
     AudioProccessor* audioProccessor = NULL;
+    VideoProccessor* videoProccessor = NULL;
     pthread_t prepareDecodeThread;
     pthread_mutex_t prepareDecodeMutex;
 
-    //开始播放线程
-    pthread_t startPlayThread;
+    //开始解码线程
     pthread_t startDecodeThread;
 
 private:

@@ -35,6 +35,7 @@ private:
     jmethodID jmid_speedModified;
     jmethodID jmid_progress;
     jmethodID jmid_error;
+    jmethodID jmid_renderyuv;
 private:
     NotifyApplication();
 public:
@@ -53,6 +54,7 @@ public:
     void notifyLoad(bool load);
     void notifyProgress(int type, float current, int total);
     void notifyError(int type, int code, const char* msg);
+    void notifyRenderYUV(int type, int width, int height, uint8_t* fy, uint8_t* fu, uint8_t* fv);
 };
 
 

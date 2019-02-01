@@ -64,6 +64,7 @@ add_library( # Sets the name of the library.
               src/main/cpp/PlaySession.cpp
               src/main/cpp/ErrUtil.cpp
               src/main/cpp/PacketQueue.cpp
+              src/main/cpp/VideoProccessor.cpp
 
               src/main/cpp/soundtouch/SoundTouch/AAFilter.cpp
               src/main/cpp/soundtouch/SoundTouch/FIFOSampleBuffer.cpp

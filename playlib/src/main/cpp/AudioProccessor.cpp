@@ -25,13 +25,23 @@ AudioProccessor::~AudioProccessor() {
     }
 }
 
+void* startAudioPlayRunnable(void* data) {
+    AudioProccessor* pProccessor = (AudioProccessor*) data;
+    pProccessor->play();
+    pthread_exit(&pProccessor->startPlayThread);
+}
+
 void AudioProccessor::start() {
     LOGI("AudioProccessor::start");
-    prepareSLEngien();
-    prepareSLOutputMixAndPlay();
+    pthread_create(&startPlayThread,NULL, startAudioPlayRunnable, this);
+
     LOGI("AudioProccessor::start end");
 }
 
+void AudioProccessor::play() {
+    prepareSLEngien();
+    prepareSLOutputMixAndPlay();
+}
 void AudioProccessor::pause() {
     LOGI("AudioProccessor::pause");
     PlaySession::getIns()->playState = PLAY_STATE_PAUSED;
@@ -488,6 +498,7 @@ void AudioProccessor::calcCurrentClock(double time) {
     }
     PlaySession::getIns()->currentClock = time;
 }
+
 
 
 

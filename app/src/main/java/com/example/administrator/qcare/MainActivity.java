@@ -28,7 +28,8 @@ public class MainActivity extends AppCompatActivity {
     private String nextUrl = "http://ngcdn004.cnr.cn/live/dszs/index.m3u8";
     private String ape = Environment.getExternalStorageDirectory() + File.separator + "被风吹过的夏天.ape";
     private String Aape = Environment.getExternalStorageDirectory() + File.separator + "SideA-small.ape";
-    public String local = "/storage/emulated/0/1.mp3";
+    private String local = "/storage/emulated/0/1.mp3";
+    private String mp4Url = Environment.getExternalStorageDirectory() + File.separator + "你的名字.mp4";
     private SeekBar mVolumeBar;
     private SeekBar mTimeBar;
     private ProgressBar mClockBar;
@@ -166,7 +167,7 @@ public class MainActivity extends AppCompatActivity {
         if (mPlayState == PLAYSTATE_START) {
             return;
         }
-        mPlayJniProxy.prepare(playUrl,  mVolume, mChannelLayout);
+        mPlayJniProxy.prepare(mp4Url,  mVolume, mChannelLayout);
     }
 
     public void onPause(View view) {

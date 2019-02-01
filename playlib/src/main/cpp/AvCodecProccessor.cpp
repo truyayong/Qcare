@@ -90,12 +90,13 @@ void AvCodecProccessor::prepareDecoder() {
         pthread_mutex_unlock(&prepareDecodeMutex);
         return;
     }
-//    if (initAVCoderctx(&mVideoStreamIndex, &pVideoCodecCtx, &pVideoCodecPara, AVMEDIA_TYPE_VIDEO) != 0) {
-//        PlaySession::getIns()->bExit = true;
-//        pthread_mutex_unlock(&prepareDecodeMutex);
-//        return;
-//    }
+    if (initAVCoderctx(&mVideoStreamIndex, &pVideoCodecCtx, &pVideoCodecPara, AVMEDIA_TYPE_VIDEO) != 0) {
+        PlaySession::getIns()->bExit = true;
+        pthread_mutex_unlock(&prepareDecodeMutex);
+        return;
+    }
     audioProccessor = new AudioProccessor(pAudioCodecCtx);
+    videoProccessor = new VideoProccessor(pVideoCodecCtx);
     pthread_mutex_unlock(&prepareDecodeMutex);
     NotifyApplication::getIns()->notifyPrepared(CHILD_THREAD);
     LOGI("AvCodecProccessor::prepareDecoder end");
@@ -163,22 +164,17 @@ void* startDecodeRunnable(void* data) {
     pthread_exit(&pCoder->startDecodeThread);
 }
 
-void* startPlayRunnable(void* data) {
-    AvCodecProccessor* pCoder = (AvCodecProccessor*) data;
-    pCoder->audioProccessor->start();
-    pthread_exit(&pCoder->startPlayThread);
-}
 
 void AvCodecProccessor::start() {
     LOGI("AvCodecProccessor::start");
     PlaySession::getIns()->playState = PLAY_STATE_PLAYING;
     pthread_create(&startDecodeThread, NULL, startDecodeRunnable, this);
-    pthread_create(&startPlayThread,NULL, startPlayRunnable, this);
+    audioProccessor->start();
+    videoProccessor->start();
 }
 
 void AvCodecProccessor::startDecoder() {
     LOGI("AvCodecProccessor::startDecoder");
-    int count = 0;
     while (!PlaySession::getIns()->bExit && NULL != audioProccessor
            && NULL != pAVFormatCtx) {
         if (PlaySession::getIns()->bSeeking) {
@@ -193,8 +189,9 @@ void AvCodecProccessor::startDecoder() {
         int ret = av_read_frame(pAVFormatCtx, avPacket);
         if (ret == 0) {
             if (avPacket->stream_index == mAudioStreamIndex) {
-                count++;
                 audioProccessor->pQueue->putAvPacket(avPacket);
+            } else if (avPacket->stream_index == mVideoStreamIndex) {
+                videoProccessor->pQueue->putAvPacket(avPacket);
             } else {
                 av_packet_free(&avPacket);
                 av_free(avPacket);
@@ -228,6 +225,12 @@ void AvCodecProccessor::stop() {
         audioProccessor->stop();
         delete audioProccessor;
         audioProccessor = NULL;
+    }
+
+    if (NULL != videoProccessor) {
+        videoProccessor->stop();
+        delete videoProccessor;
+        videoProccessor = NULL;
     }
 }
 

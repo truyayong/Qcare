@@ -37,6 +37,7 @@ void NotifyApplication::init(_JavaVM *jvm, JNIEnv *jenv, jobject *pObj) {
     this->jmid_pitchModified = jenv->GetMethodID(jlz, "onPitchModified", "(F)V");
     this->jmid_speedModified = jenv->GetMethodID(jlz, "onSpeedModified", "(F)V");
     this->jmid_progress = jenv->GetMethodID(jlz, "onPlayProgress", "(FI)V");
+    this->jmid_renderyuv = jenv->GetMethodID(jlz, "onRenderYUV", "(II[B[B[B)V");
 }
 
 void NotifyApplication::notifyError(int type, int code, const char *msg) {
@@ -212,6 +213,34 @@ void NotifyApplication::notifyProgress(int type, float current, int total) {
             return;
         }
         env->CallVoidMethod(jobj, jmid_progress, current, total);
+        jvm->DetachCurrentThread();
+    }
+}
+
+void
+NotifyApplication::notifyRenderYUV(int type, int width, int height, uint8_t *fy, uint8_t *fu, uint8_t *fv) {
+    if (MAIN_THREAD == type) {
+        //不支持从主线程传递YUV数据
+    } else if (CHILD_THREAD == type) {
+        JNIEnv* env;
+        if (jvm->AttachCurrentThread(&env, 0) != JNI_OK) {
+            LOGE("NotifyApplication::notifyProgress get child jnienv wrong");
+            return;
+        }
+
+        jbyteArray y = env->NewByteArray(width * height);
+        env->SetByteArrayRegion(y, 0, width * height, reinterpret_cast<const jbyte *>(fy));
+
+        jbyteArray u = env->NewByteArray(width * height / 4);
+        env->SetByteArrayRegion(u, 0, width * height / 4, reinterpret_cast<const jbyte *>(fu));
+
+        jbyteArray v = env->NewByteArray(width * height / 4);
+        env->SetByteArrayRegion(v, 0, width * height / 4, reinterpret_cast<const jbyte *>(fv));
+        env->CallVoidMethod(jobj, jmid_renderyuv, width, height, y, u, v);
+
+        env->DeleteLocalRef(y);
+        env->DeleteLocalRef(u);
+        env->DeleteLocalRef(v);
         jvm->DetachCurrentThread();
     }
 }
