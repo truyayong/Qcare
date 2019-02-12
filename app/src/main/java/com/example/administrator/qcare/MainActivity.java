@@ -10,6 +10,7 @@ import android.widget.SeekBar;
 import android.widget.Toast;
 
 import com.example.playlib.PlayJniProxy;
+import com.example.playlib.videoRender.VideoGLSurfaceView;
 
 import java.io.File;
 
@@ -33,6 +34,7 @@ public class MainActivity extends AppCompatActivity {
     private SeekBar mVolumeBar;
     private SeekBar mTimeBar;
     private ProgressBar mClockBar;
+    private VideoGLSurfaceView mGlVideoView;
     private boolean mPlayNext = false;
     private int mPlayState = PLAYSTATE_INIT;
     private int mVolume = 85;
@@ -79,6 +81,7 @@ public class MainActivity extends AppCompatActivity {
 
             }
         });
+        mGlVideoView = (VideoGLSurfaceView) findViewById(R.id.gl_video);
     }
 
     private void initAudioPlay() {
@@ -160,6 +163,11 @@ public class MainActivity extends AppCompatActivity {
                     }
                 });
             }
+
+            @Override
+            public void onRenderYUV(int width, int height, byte[] y, byte[] u, byte[] v) {
+                mGlVideoView.refreshData(width, height, y, u, v);
+            }
         });
     }
 
@@ -201,19 +209,6 @@ public class MainActivity extends AppCompatActivity {
 
     public void onRight(View view) {
         mPlayJniProxy.switchChannel(PlayJniProxy.PLAY_CHANNEL_RIGHT);
-    }
-
-    public void onPitch(View view) {
-        mPlayJniProxy.setPitch(1.5f);
-    }
-
-    public void onNormal(View view) {
-        mPlayJniProxy.setPitch(1.0f);
-        mPlayJniProxy.setSpeed(1.0f);
-    }
-
-    public void onSpeed(View view) {
-        mPlayJniProxy.setSpeed(1.5f);
     }
 
     public void onNext(View view) {

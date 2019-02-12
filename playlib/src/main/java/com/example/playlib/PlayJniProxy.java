@@ -244,6 +244,9 @@ public class PlayJniProxy {
 
     private void onRenderYUV(int width, int height, byte[] y, byte[] u, byte[] v) {
         Log.i(TAG, "qmusic onRenderYUV ");
+        if (mPlayProgressCallBack != null) {
+            mPlayProgressCallBack.onRenderYUV(width, height, y, u, v);
+        }
     }
 
     /************************************************************************************************************************
@@ -262,5 +265,6 @@ public class PlayJniProxy {
         void onSpeedModified(float speed);
         void onError(int code, String msg);
         void onPlayProgress(float currentProgress, int Total);
+        void onRenderYUV(int width, int height, byte[] y, byte[] u, byte[] v);
     }
 }

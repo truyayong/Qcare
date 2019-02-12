@@ -46,15 +46,7 @@
             android:textSize="8dp"
             android:text="stop"
             android:onClick="onStop" />
-    </LinearLayout>
-    <SeekBar
-        android:id="@+id/seek_volume"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content" />
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal">
+
         <Button
             android:layout_width="0dp"
             android:layout_weight="1"
@@ -74,6 +66,10 @@
             android:text="RIGHT"
             android:onClick="onRight" />
     </LinearLayout>
+    <SeekBar
+        android:id="@+id/seek_volume"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" />
 
     <SeekBar
         android:id="@+id/seek_time"
@@ -84,29 +80,10 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         style="?android:attr/progressBarStyleHorizontal"/>
-
-    <LinearLayout
+    <com.example.playlib.videoRender.VideoGLSurfaceView
+        android:id="@+id/gl_video"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal">
-        <Button
-            android:layout_width="0dp"
-            android:layout_weight="1"
-            android:layout_height="match_parent"
-            android:text="音调高"
-            android:onClick="onPitch" />
-        <Button
-            android:layout_width="0dp"
-            android:layout_weight="1"
-            android:layout_height="match_parent"
-            android:text="正常"
-            android:onClick="onNormal" />
-        <Button
-            android:layout_width="0dp"
-            android:layout_weight="1"
-            android:layout_height="match_parent"
-            android:text="速度快"
-            android:onClick="onSpeed" />
-    </LinearLayout>
+        android:layout_height="match_parent" />
+
 
 </LinearLayout>
