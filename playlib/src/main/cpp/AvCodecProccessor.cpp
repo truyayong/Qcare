@@ -110,9 +110,19 @@ int AvCodecProccessor::initAVCoderctx(int *pIndex, AVCodecContext **ppAvCodecCtx
         if (pAVFormatCtx->streams[i]->codecpar->codec_type == type) {
             *pIndex = i;
             *ppAvCodecpara = pAVFormatCtx->streams[i]->codecpar;
-            PlaySession::getIns()->duration = pAVFormatCtx->duration / AV_TIME_BASE;
-            PlaySession::getIns()->timeBase = pAVFormatCtx->streams[i]->time_base;
-            PlaySession::getIns()->inSampleRate = pAudioCodecPara->sample_rate;
+            if (type == AVMEDIA_TYPE_AUDIO) {
+                PlaySession::getIns()->duration = pAVFormatCtx->duration / AV_TIME_BASE;
+                PlaySession::getIns()->timeBase = pAVFormatCtx->streams[i]->time_base;
+                PlaySession::getIns()->inSampleRate = (*ppAvCodecpara)->sample_rate;
+            } else if (type == AVMEDIA_TYPE_VIDEO) {
+                PlaySession::getIns()->videoTimeBase = pAVFormatCtx->streams[i]->time_base;
+                int num = pAVFormatCtx->streams[i]->avg_frame_rate.num;
+                int den = pAVFormatCtx->streams[i]->avg_frame_rate.den;
+                if (num != 0 && den != 0) {
+                    int fps = num / den;
+                    PlaySession::getIns()->defaultDelayTime = 1.0 / fps;
+                }
+            }
         }
     }
 

@@ -31,6 +31,7 @@ public class MainActivity extends AppCompatActivity {
     private String Aape = Environment.getExternalStorageDirectory() + File.separator + "SideA-small.ape";
     private String local = "/storage/emulated/0/1.mp3";
     private String mp4Url = Environment.getExternalStorageDirectory() + File.separator + "你的名字.mp4";
+    private String mp4Url1 = Environment.getExternalStorageDirectory() + File.separator + "药神MP4.mp4";
     private SeekBar mVolumeBar;
     private SeekBar mTimeBar;
     private ProgressBar mClockBar;
@@ -175,7 +176,7 @@ public class MainActivity extends AppCompatActivity {
         if (mPlayState == PLAYSTATE_START) {
             return;
         }
-        mPlayJniProxy.prepare(mp4Url,  mVolume, mChannelLayout);
+        mPlayJniProxy.prepare(mp4Url1,  mVolume, mChannelLayout);
     }
 
     public void onPause(View view) {

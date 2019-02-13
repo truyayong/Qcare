@@ -81,12 +81,12 @@ void VideoProccessor::play() {
             avPacket = NULL;
             continue;
         }
+        calcuVideoClock(avFrame);
+        av_usleep(PlaySession::getIns()->getVideoDelayTime() * 1000000);
         if (avFrame->format == AV_PIX_FMT_YUV420P) {
-            LOGI("当前视频是YUV420P格式");
             NotifyApplication::getIns()->notifyRenderYUV(CHILD_THREAD, pAVCodecCtx->width
                     , pAVCodecCtx->height, avFrame->data[0], avFrame->data[1], avFrame->data[2]);
         } else {
-            LOGI("当前视频不是YUV420P格式");
             AVFrame *pFrameYUV420P = av_frame_alloc();
             int bufferSize = av_image_get_buffer_size(AV_PIX_FMT_YUV420P
                     , pAVCodecCtx->width, pAVCodecCtx->height, 1);
@@ -134,4 +134,18 @@ void VideoProccessor::play() {
 
 void VideoProccessor::stop() {
 
+}
+
+void VideoProccessor::calcuVideoClock(AVFrame* avFrame) {
+    if (NULL == avFrame) {
+        return;
+    }
+    double pts = av_frame_get_best_effort_timestamp(avFrame);
+    if (pts == AV_NOPTS_VALUE) {
+        pts = 0;
+    }
+    pts *= av_q2d(PlaySession::getIns()->videoTimeBase);
+    if (pts > 0) {
+        PlaySession::getIns()->videoClock = pts;
+    }
 }

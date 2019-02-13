@@ -114,6 +114,7 @@ public class VideoRender implements GLSurfaceView.Renderer {
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
         GLES20.glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         renderYUV();
+        GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
     }
 
     private void renderYUV() {
@@ -152,8 +153,6 @@ public class VideoRender implements GLSurfaceView.Renderer {
             y = null;
             u = null;
             v = null;
-
-            GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
         }
     }
 

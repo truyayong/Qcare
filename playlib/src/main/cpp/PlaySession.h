@@ -8,6 +8,8 @@ extern "C" {
 #include <libavutil/rational.h>
 #include <libavutil/samplefmt.h>
 };
+#include "AndroidLog.h"
+#include <cwchar>
 
 /**
  * 存储播放会话的状态
@@ -51,6 +53,11 @@ public:
     //上报到应用层的最短时间间隔
     static const double TIME_INTERVAL = 0.1;
 
+    double videoClock = 0;
+    AVRational videoTimeBase;
+
+    double defaultDelayTime = 0.04;
+
     float pitch = 1.0f;
     float speed = 1.0f;
 private:
@@ -66,6 +73,12 @@ public:
     int getInChannelLayoutBytes();
 
     int getoutChannelLayoutBytes();
+
+    /**
+     * 根据音视频时差计算视频delay时间
+     * @return
+     */
+    double getVideoDelayTime();
 };
 
 

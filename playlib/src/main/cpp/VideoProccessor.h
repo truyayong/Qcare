@@ -28,6 +28,9 @@ public:
     void start();
     void play();
     void stop();
+
+private:
+    void calcuVideoClock(AVFrame* avFrame);
 };
 
 
