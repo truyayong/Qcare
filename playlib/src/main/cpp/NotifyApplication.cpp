@@ -24,8 +24,7 @@ void NotifyApplication::init(_JavaVM *jvm, JNIEnv *jenv, jobject *pObj) {
         return;
     }
 
-    this->jmid_error = jenv->GetMethodID(jlz
-            , "onError", "(ILjava/lang/String;)V");
+    this->jmid_error = jenv->GetMethodID(jlz, "onError", "(ILjava/lang/String;)V");
     this->jmid_prepare = jenv->GetMethodID(jlz, "onPrepared", "()V");
     this->jmid_started = jenv->GetMethodID(jlz, "onStarted", "()V");
     this->jmid_resumed = jenv->GetMethodID(jlz, "onResumed", "()V");
@@ -38,6 +37,7 @@ void NotifyApplication::init(_JavaVM *jvm, JNIEnv *jenv, jobject *pObj) {
     this->jmid_speedModified = jenv->GetMethodID(jlz, "onSpeedModified", "(F)V");
     this->jmid_progress = jenv->GetMethodID(jlz, "onPlayProgress", "(FI)V");
     this->jmid_renderyuv = jenv->GetMethodID(jlz, "onRenderYUV", "(II[B[B[B)V");
+    this->jmid_supportvideo = jenv->GetMethodID(jlz, "onSupportMediaCodec", "(Ljava/lang/String;)Z");
 }
 
 void NotifyApplication::notifyError(int type, int code, const char *msg) {
@@ -243,4 +243,23 @@ NotifyApplication::notifyRenderYUV(int type, int width, int height, uint8_t *fy,
         env->DeleteLocalRef(v);
         jvm->DetachCurrentThread();
     }
+}
+
+bool NotifyApplication::callSupportVideo(int type, const char *ffCodeName) {
+    bool support = false;
+    if (MAIN_THREAD == type) {
+        //[TODO]truyayog 不支持从主线程调用
+    } else if (CHILD_THREAD == type) {
+        JNIEnv* env;
+        if (jvm->AttachCurrentThread(&env, 0) != JNI_OK) {
+            LOGE("NotifyApplication::callSupportVideo get child jnienv wrong");
+            return support;
+        }
+
+        jstring type = env->NewStringUTF(ffCodeName);
+        support = env->CallBooleanMethod(jobj, jmid_supportvideo, type);
+        env->DeleteLocalRef(type);
+        jvm->DetachCurrentThread();
+    }
+    return support;
 }

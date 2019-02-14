@@ -36,6 +36,7 @@ private:
     jmethodID jmid_progress;
     jmethodID jmid_error;
     jmethodID jmid_renderyuv;
+    jmethodID jmid_supportvideo;
 private:
     NotifyApplication();
 public:
@@ -55,6 +56,7 @@ public:
     void notifyProgress(int type, float current, int total);
     void notifyError(int type, int code, const char* msg);
     void notifyRenderYUV(int type, int width, int height, uint8_t* fy, uint8_t* fu, uint8_t* fv);
+    bool callSupportVideo(int type, const char* ffCodeName);
 };
 
 

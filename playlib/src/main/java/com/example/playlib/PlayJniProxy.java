@@ -2,6 +2,8 @@ package com.example.playlib;
 
 import android.util.Log;
 
+import com.example.playlib.videoRender.VideoSupportUtil;
+
 /**
  * Created by Administrator on 2018/12/13 0013.
  */
@@ -246,6 +248,10 @@ public class PlayJniProxy {
         if (mPlayProgressCallBack != null) {
             mPlayProgressCallBack.onRenderYUV(width, height, y, u, v);
         }
+    }
+
+    public boolean onSupportMediaCodec(String ffCodeName) {
+        return VideoSupportUtil.isSupportCodec(ffCodeName);
     }
 
     /************************************************************************************************************************

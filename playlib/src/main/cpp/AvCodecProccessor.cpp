@@ -176,7 +176,11 @@ void* startDecodeRunnable(void* data) {
 
 
 void AvCodecProccessor::start() {
-    LOGI("AvCodecProccessor::start");
+    if (NULL == audioProccessor || NULL == videoProccessor) {
+        return;
+    }
+
+    LOGI("AvCodecProccessor::start ");
     PlaySession::getIns()->playState = PLAY_STATE_PLAYING;
     pthread_create(&startDecodeThread, NULL, startDecodeRunnable, this);
     audioProccessor->start();
@@ -184,9 +188,15 @@ void AvCodecProccessor::start() {
 }
 
 void AvCodecProccessor::startDecoder() {
-    LOGI("AvCodecProccessor::startDecoder");
+
+    const char* codecName = videoProccessor->pAVCodecCtx->codec->name;
+    LOGI("AvCodecProccessor::startDecoder codec : %s ", codecName);
+    if (NotifyApplication::getIns()->callSupportVideo(CHILD_THREAD, codecName)) {
+        LOGE("当前设备支持硬解码当前视频");
+        videoProccessor->codecType = VideoProccessor::CODEC_MEDIACODEC;
+    }
     while (!PlaySession::getIns()->bExit && NULL != audioProccessor
-           && NULL != pAVFormatCtx) {
+           && NULL != pAVFormatCtx && NULL != videoProccessor) {
         if (PlaySession::getIns()->bSeeking) {
             av_usleep(1000 * 100);
             continue;

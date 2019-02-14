@@ -16,14 +16,19 @@ extern "C" {
 
 class VideoProccessor {
 private:
-    AVCodecContext* pAVCodecCtx = NULL;
+
 public:
+    const static int CODEC_YUV = 0;//支持软解码
+    const static int CODEC_MEDIACODEC = 1;//支持硬解码
+    AVCodecContext* pAVCodecCtx = NULL;
     PacketQueue* pQueue = NULL;
     //开始播放线程
     pthread_t startPlayThread;
 
     //解码器在多线程下需要同步
     pthread_mutex_t codecMutex;
+
+    int codecType = CODEC_YUV;
 public:
     VideoProccessor(AVCodecContext* pCodecCtx);
     virtual ~VideoProccessor();
@@ -34,6 +39,10 @@ public:
 
 private:
     void calcuVideoClock(AVFrame* avFrame);
+    //软解码
+    void softDecode(AVPacket* avPacket);
+    //硬解码
+    void hardDecode(AVPacket* avPacket);
 };
 
 
