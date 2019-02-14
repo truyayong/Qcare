@@ -59,6 +59,9 @@ public:
     //buffer申请1s的样本数，一般来说一个AVFrame包含的样本数都会小于1s的数量
     uint8_t *buffer = NULL;
 
+    //解码器在多线程下需要同步
+    pthread_mutex_t codecMutex;
+
 private:
     void setPlayState(int state);
     int adapterSLSampleRate(int rate);

@@ -9,6 +9,7 @@
 AudioProccessor::AudioProccessor(AVCodecContext* pCodecCtx) {
     pQueue = new PacketQueue();
     pAVCodecCtx = pCodecCtx;
+    pthread_mutex_init(&codecMutex, NULL);
 }
 
 AudioProccessor::~AudioProccessor() {
@@ -23,6 +24,7 @@ AudioProccessor::~AudioProccessor() {
     if (NULL != pAVCodecCtx) {
         pAVCodecCtx = NULL;
     }
+    pthread_mutex_destroy(&codecMutex);
 }
 
 void* startAudioPlayRunnable(void* data) {
@@ -56,7 +58,6 @@ void AudioProccessor::resume() {
 
 void AudioProccessor::stop() {
     LOGI("AudioProccessor::stop");
-    PlaySession::getIns()->bExit = true;
     PlaySession::getIns()->playState = PLAY_STATE_STOPPED;
     setPlayState(PlaySession::getIns()->playState);
     if (NULL != pQueue && pQueue->size() > 0) {
@@ -200,11 +201,11 @@ void methodBufferCallBack(SLAndroidSimpleBufferQueueItf bf, void * context) {
     if (NULL != pPlayer) {
         pcmSize = pPlayer->reSampleAudio((void **)&pPlayer->pOutBuf);
         if (pcmSize > 0) {
-            PlaySession::getIns()->currentClock += pcmSize / (double)(PlaySession::getIns()->inSampleRate * 2 * 2);
-            if (PlaySession::getIns()->currentClock - PlaySession::getIns()->lastClock >= PlaySession::TIME_INTERVAL) {
-                PlaySession::getIns()->lastClock = PlaySession::getIns()->currentClock;
+            PlaySession::getIns()->audioClock += pcmSize / (double)(PlaySession::getIns()->inSampleRate * 2 * 2);
+            if (PlaySession::getIns()->audioClock - PlaySession::getIns()->lastClock >= PlaySession::TIME_INTERVAL) {
+                PlaySession::getIns()->lastClock = PlaySession::getIns()->audioClock;
                 //TODO[truyayong] 时间回调到应用层
-                NotifyApplication::getIns()->notifyProgress(CHILD_THREAD, PlaySession::getIns()->currentClock, PlaySession::getIns()->duration);
+                NotifyApplication::getIns()->notifyProgress(CHILD_THREAD, PlaySession::getIns()->audioClock, PlaySession::getIns()->duration);
             }
         }
         (*pPlayer->pcmBufQueueItf)->Enqueue(pPlayer->pcmBufQueueItf, (char*)pPlayer->pOutBuf
@@ -413,12 +414,14 @@ int AudioProccessor::reSampleAudio(void **pcmBuf) {
                 avPacket = NULL;
                 continue;
             }
+            pthread_mutex_lock(&codecMutex);
             ret = avcodec_send_packet(pAVCodecCtx, avPacket);
             if (ret != 0) {
                 LOGE("avcodec_send_packet ret : %d err: %s", ret, ErrUtil::errLog(ret));
                 av_packet_free(&avPacket);
                 av_free(avPacket);
                 avPacket = NULL;
+                pthread_mutex_unlock(&codecMutex);
                 continue;
             }
         }
@@ -453,6 +456,7 @@ int AudioProccessor::reSampleAudio(void **pcmBuf) {
                 avFrame = NULL;
                 swr_free(&pSwrCtx);
                 bReadFrameOver = true;
+                pthread_mutex_unlock(&codecMutex);
                 continue;
             }
 
@@ -470,13 +474,14 @@ int AudioProccessor::reSampleAudio(void **pcmBuf) {
             int outChannels = av_get_channel_layout_nb_channels(AV_CH_LAYOUT_STEREO);
             dataSize = PlaySession::getIns()->numSampleAvFrame * outChannels * av_get_bytes_per_sample(PlaySession::getIns()->outFmt);
 
-            double time = avFrame->pts * av_q2d(PlaySession::getIns()->timeBase);
+            double time = avFrame->pts * av_q2d(PlaySession::getIns()->audioTimeBase);
             calcCurrentClock(time);
 
             av_frame_free(&avFrame);
             av_free(avFrame);
             avFrame = NULL;
             swr_free(&pSwrCtx);
+            pthread_mutex_unlock(&codecMutex);
             break;
         } else {
             bReadFrameOver = true;
@@ -486,6 +491,7 @@ int AudioProccessor::reSampleAudio(void **pcmBuf) {
             av_frame_free(&avFrame);
             av_free(avFrame);
             avFrame = NULL;
+            pthread_mutex_unlock(&codecMutex);
             continue;
         }
     }
@@ -493,10 +499,10 @@ int AudioProccessor::reSampleAudio(void **pcmBuf) {
 }
 
 void AudioProccessor::calcCurrentClock(double time) {
-    if (time < PlaySession::getIns()->currentClock) {
-        time = PlaySession::getIns()->currentClock;
+    if (time < PlaySession::getIns()->audioClock) {
+        time = PlaySession::getIns()->audioClock;
     }
-    PlaySession::getIns()->currentClock = time;
+    PlaySession::getIns()->audioClock = time;
 }
 
 

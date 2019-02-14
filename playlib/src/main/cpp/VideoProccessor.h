@@ -21,6 +21,9 @@ public:
     PacketQueue* pQueue = NULL;
     //开始播放线程
     pthread_t startPlayThread;
+
+    //解码器在多线程下需要同步
+    pthread_mutex_t codecMutex;
 public:
     VideoProccessor(AVCodecContext* pCodecCtx);
     virtual ~VideoProccessor();

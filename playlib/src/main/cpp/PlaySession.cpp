@@ -58,7 +58,7 @@ void PlaySession::releaseUrl() {
 }
 
 double PlaySession::getVideoDelayTime() {
-    double diff = currentClock - videoClock;
+    double diff = audioClock - videoClock;
     double delayTime = 0.0;
     if (diff > 0.003) {
         delayTime = delayTime * 2 / 3;

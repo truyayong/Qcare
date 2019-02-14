@@ -7,6 +7,7 @@ import android.util.Log;
 import android.view.View;
 import android.widget.ProgressBar;
 import android.widget.SeekBar;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.example.playlib.PlayJniProxy;
@@ -34,7 +35,7 @@ public class MainActivity extends AppCompatActivity {
     private String mp4Url1 = Environment.getExternalStorageDirectory() + File.separator + "药神MP4.mp4";
     private SeekBar mVolumeBar;
     private SeekBar mTimeBar;
-    private ProgressBar mClockBar;
+    private TextView mTvProgress;
     private VideoGLSurfaceView mGlVideoView;
     private boolean mPlayNext = false;
     private int mPlayState = PLAYSTATE_INIT;
@@ -63,7 +64,6 @@ public class MainActivity extends AppCompatActivity {
 
             }
         });
-        mClockBar = (ProgressBar) findViewById(R.id.progress_time);
         mVolumeBar.setProgress(mVolume);
         mTimeBar = (SeekBar) findViewById(R.id.seek_time);
         mTimeBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
@@ -83,6 +83,7 @@ public class MainActivity extends AppCompatActivity {
             }
         });
         mGlVideoView = (VideoGLSurfaceView) findViewById(R.id.gl_video);
+        mTvProgress = (TextView) findViewById(R.id.tv_progress);
     }
 
     private void initAudioPlay() {
@@ -160,7 +161,7 @@ public class MainActivity extends AppCompatActivity {
                     @Override
                     public void run() {
                         int progress = (int)(currentProgress / (float) total * 100.0f);
-                        mClockBar.setProgress(progress);
+                        mTvProgress.setText("当前进度：" + progress + "%");
                     }
                 });
             }

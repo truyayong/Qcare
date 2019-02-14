@@ -112,7 +112,7 @@ int AvCodecProccessor::initAVCoderctx(int *pIndex, AVCodecContext **ppAvCodecCtx
             *ppAvCodecpara = pAVFormatCtx->streams[i]->codecpar;
             if (type == AVMEDIA_TYPE_AUDIO) {
                 PlaySession::getIns()->duration = pAVFormatCtx->duration / AV_TIME_BASE;
-                PlaySession::getIns()->timeBase = pAVFormatCtx->streams[i]->time_base;
+                PlaySession::getIns()->audioTimeBase = pAVFormatCtx->streams[i]->time_base;
                 PlaySession::getIns()->inSampleRate = (*ppAvCodecpara)->sample_rate;
             } else if (type == AVMEDIA_TYPE_VIDEO) {
                 PlaySession::getIns()->videoTimeBase = pAVFormatCtx->streams[i]->time_base;
@@ -215,7 +215,10 @@ void AvCodecProccessor::startDecoder() {
                     av_usleep(1000 * 100);
                     continue;
                 } else {
-                    PlaySession::getIns()->bExit = true;
+                    if (!PlaySession::getIns()->bSeeking) {
+                        av_usleep(1000 * 100);
+                        PlaySession::getIns()->bExit = true;
+                    }
                     break;
                 }
             }
@@ -231,6 +234,7 @@ int AvCodecProccessor::getSampleRate() {
 
 void AvCodecProccessor::stop() {
     LOGI("AvCodecProccessor::stop");
+    PlaySession::getIns()->bExit = true;
     if (NULL != audioProccessor) {
         audioProccessor->stop();
         delete audioProccessor;
@@ -244,19 +248,39 @@ void AvCodecProccessor::stop() {
     }
 }
 
-void AvCodecProccessor::seek(int64_t second) {
+void AvCodecProccessor::seek(int64_t progress) {
+    int64_t second = PlaySession::getIns()->duration * (progress / 100.0);
     LOGI("AvCodecProccessor::seek second : %ld duration : %ld", second, PlaySession::getIns()->duration);
     if (PlaySession::getIns()->duration < 0) {
         return;
     }
     if (second >= 0 && second <= PlaySession::getIns()->duration) {
         PlaySession::getIns()->bSeeking = true;
-        if (NULL != audioProccessor->pQueue) {
-            audioProccessor->pQueue->clearQueue();
-        }
         int64_t rel = second * AV_TIME_BASE;
-        avcodec_flush_buffers(pAudioCodecCtx);
         avformat_seek_file(pAVFormatCtx, -1, INT64_MIN, rel, INT64_MAX, 0);
+        if (NULL != audioProccessor) {
+            if (NULL != audioProccessor->pQueue) {
+                audioProccessor->pQueue->clearQueue();
+            }
+            PlaySession::getIns()->audioClock = 0;
+            PlaySession::getIns()->lastClock = 0;
+
+            pthread_mutex_lock(&audioProccessor->codecMutex);
+            avcodec_flush_buffers(pAudioCodecCtx);
+            pthread_mutex_unlock(&audioProccessor->codecMutex);
+        }
+
+        if (NULL != videoProccessor) {
+            if (NULL != videoProccessor->pQueue) {
+                videoProccessor->pQueue->clearQueue();
+            }
+            PlaySession::getIns()->videoClock = 0;
+
+            pthread_mutex_lock(&videoProccessor->codecMutex);
+            avcodec_flush_buffers(pVideoCodecCtx);
+            pthread_mutex_unlock(&videoProccessor->codecMutex);
+        }
+
         PlaySession::getIns()->bSeeking = false;
     }
 }
@@ -265,12 +289,14 @@ void AvCodecProccessor::pause() {
     if (NULL != audioProccessor) {
         audioProccessor->pause();
     }
+    PlaySession::getIns()->bPause = true;
 }
 
 void AvCodecProccessor::resume() {
     if (NULL != audioProccessor) {
         audioProccessor->resume();
     }
+    PlaySession::getIns()->bPause = false;
 }
 
 void AvCodecProccessor::setVolume(int percent) {

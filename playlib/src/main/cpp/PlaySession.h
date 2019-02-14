@@ -30,6 +30,7 @@ public:
     bool bExit = false;
     bool bSeeking = false;
     bool bLoading = true;
+    bool bPause = false;
     int volume = 85;
     int playState = PLAY_STATE_PLAYING;
     int64_t outChannelLayout = PLAY_CHANNEL_STEREO;
@@ -45,9 +46,9 @@ public:
 
     //音频时长
     int64_t duration = 0;
-    AVRational timeBase;
+    AVRational audioTimeBase;
     //当前播放时长
-    double currentClock = 0;
+    double audioClock = 0;
     //最近一次的播放时长
     double lastClock = 0;
     //上报到应用层的最短时间间隔

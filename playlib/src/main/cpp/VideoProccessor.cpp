@@ -8,6 +8,7 @@
 VideoProccessor::VideoProccessor(AVCodecContext* pCodecCtx) {
     pQueue = new PacketQueue();
     pAVCodecCtx = pCodecCtx;
+    pthread_mutex_init(&codecMutex, NULL);
 }
 
 VideoProccessor::~VideoProccessor() {
@@ -20,6 +21,7 @@ VideoProccessor::~VideoProccessor() {
     if (NULL != pAVCodecCtx) {
         pAVCodecCtx = NULL;
     }
+    pthread_mutex_destroy(&codecMutex);
 }
 
 void* startVedioPlayRunnable(void* data) {
@@ -39,7 +41,12 @@ void VideoProccessor::play() {
     int ret;
     while (!PlaySession::getIns()->bExit) {
         if (PlaySession::getIns()->bSeeking) {
-            av_usleep(1000* 100);
+            av_usleep(1000 * 100);
+            continue;
+        }
+
+        if (PlaySession::getIns()->bPause) {
+            av_usleep(1000 * 100);
             continue;
         }
         if (pQueue->size() == 0) {
@@ -63,11 +70,13 @@ void VideoProccessor::play() {
             continue;
         }
 
+        pthread_mutex_lock(&codecMutex);
         ret = avcodec_send_packet(pAVCodecCtx, avPacket);
         if (ret != 0) {
             av_packet_free(&avPacket);
             av_free(avPacket);
             avPacket = NULL;
+            pthread_mutex_unlock(&codecMutex);
             continue;
         }
         AVFrame* avFrame = av_frame_alloc();
@@ -79,10 +88,14 @@ void VideoProccessor::play() {
             av_packet_free(&avPacket);
             av_free(avPacket);
             avPacket = NULL;
+            pthread_mutex_unlock(&codecMutex);
             continue;
         }
+
+        //音视频同步sleep
         calcuVideoClock(avFrame);
         av_usleep(PlaySession::getIns()->getVideoDelayTime() * 1000000);
+
         if (avFrame->format == AV_PIX_FMT_YUV420P) {
             NotifyApplication::getIns()->notifyRenderYUV(CHILD_THREAD, pAVCodecCtx->width
                     , pAVCodecCtx->height, avFrame->data[0], avFrame->data[1], avFrame->data[2]);
@@ -109,6 +122,8 @@ void VideoProccessor::play() {
                 av_packet_free(&avPacket);
                 av_free(avPacket);
                 avPacket = NULL;
+                pthread_mutex_unlock(&codecMutex);
+                continue;
             }
             sws_scale(swsCtx, reinterpret_cast<const uint8_t *const *>(avFrame->data)
                     , avFrame->linesize, 0, avFrame->height, pFrameYUV420P->data, pFrameYUV420P->linesize);
@@ -129,11 +144,14 @@ void VideoProccessor::play() {
         av_packet_free(&avPacket);
         av_free(avPacket);
         avPacket = NULL;
+        pthread_mutex_unlock(&codecMutex);
     }
 }
 
 void VideoProccessor::stop() {
-
+    if (NULL != pQueue && pQueue->size() > 0) {
+        pQueue->clearQueue();
+    }
 }
 
 void VideoProccessor::calcuVideoClock(AVFrame* avFrame) {
