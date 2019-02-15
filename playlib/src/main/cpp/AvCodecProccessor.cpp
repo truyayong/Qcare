@@ -261,6 +261,10 @@ void AvCodecProccessor::initBitStreamFilter(const char *codecName) {
     }
 
     videoProccessor->absCtx->time_base_in = PlaySession::getIns()->videoTimeBase;
+    NotifyApplication::getIns()->callInitMedaiCodec(CHILD_THREAD, codecName, videoProccessor->pAVCodecCtx->width
+            , videoProccessor->pAVCodecCtx->height, videoProccessor->pAVCodecCtx->extradata_size
+            , videoProccessor->pAVCodecCtx->extradata_size, videoProccessor->pAVCodecCtx->extradata
+            , videoProccessor->pAVCodecCtx->extradata);
 }
 
 int AvCodecProccessor::getSampleRate() {

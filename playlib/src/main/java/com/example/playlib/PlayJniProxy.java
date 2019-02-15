@@ -1,8 +1,14 @@
 package com.example.playlib;
 
+import android.media.MediaCodec;
+import android.media.MediaFormat;
 import android.util.Log;
+import android.view.Surface;
 
 import com.example.playlib.videoRender.VideoSupportUtil;
+
+import java.io.IOException;
+import java.nio.ByteBuffer;
 
 /**
  * Created by Administrator on 2018/12/13 0013.
@@ -37,6 +43,10 @@ public class PlayJniProxy {
     }
 
     private PlayProgressCallBack mPlayProgressCallBack;
+    private Surface mSurface;
+    private MediaFormat mMediaFormat;
+    private MediaCodec mMediaCodec;
+    private MediaCodec.BufferInfo mBufferinfo;
 
     /************************************************************************************************************************
      *暴露给java层的api
@@ -252,6 +262,52 @@ public class PlayJniProxy {
 
     public boolean onSupportMediaCodec(String ffCodeName) {
         return VideoSupportUtil.isSupportCodec(ffCodeName);
+    }
+
+    /**
+     * 初始化mediaCodec
+     * @param codecName
+     * @param width
+     * @param height
+     * @param csd0
+     * @param csd1
+     */
+    public void onInitMediaCodec(String codecName, int width, int height, byte[] csd0, byte[] csd1) {
+        if (mSurface != null) {
+            try {
+                String mime = VideoSupportUtil.findVideoCodecName(codecName);
+                mMediaFormat = MediaFormat.createVideoFormat(mime, width, height);
+                mMediaFormat.setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, width * height);
+                mMediaFormat.setByteBuffer("csd-0", ByteBuffer.wrap(csd0));
+                mMediaFormat.setByteBuffer("csd-1", ByteBuffer.wrap(csd1));
+                Log.e(TAG, "mediaFormat : " + mMediaFormat.toString());
+                mMediaCodec = MediaCodec.createByCodecName(mime);
+                mMediaCodec.configure(mMediaFormat, mSurface, null, 0);
+                mMediaCodec.start();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        } else {
+            Log.e(TAG, "mSurface is null");
+        }
+    }
+
+    public void hardDecodeAvPacket(int size, byte[] data) {
+        Log.e(TAG, "hardDecodeAvPacket size : " + size + " datasize : " + data.length);
+        if (mSurface != null && size > 0 && data != null) {
+            int inputBufferIndex = mMediaCodec.dequeueInputBuffer(10);
+            if (inputBufferIndex >= 0) {
+                ByteBuffer byteBuffer = mMediaCodec.getInputBuffers()[inputBufferIndex];
+                byteBuffer.clear();
+                byteBuffer.put(data);
+                mMediaCodec.queueInputBuffer(inputBufferIndex, 0, size, 0, 0);
+            }
+            int outputBufferIndex = mMediaCodec.dequeueOutputBuffer(mBufferinfo, 10);
+            while (outputBufferIndex >= 0) {
+                mMediaCodec.releaseOutputBuffer(outputBufferIndex, true);
+                outputBufferIndex = mMediaCodec.dequeueOutputBuffer(mBufferinfo, 10);
+            }
+        }
     }
 
     /************************************************************************************************************************

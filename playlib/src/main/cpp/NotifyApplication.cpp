@@ -38,6 +38,8 @@ void NotifyApplication::init(_JavaVM *jvm, JNIEnv *jenv, jobject *pObj) {
     this->jmid_progress = jenv->GetMethodID(jlz, "onPlayProgress", "(FI)V");
     this->jmid_renderyuv = jenv->GetMethodID(jlz, "onRenderYUV", "(II[B[B[B)V");
     this->jmid_supportvideo = jenv->GetMethodID(jlz, "onSupportMediaCodec", "(Ljava/lang/String;)Z");
+    this->jmid_initmediacodec = jenv->GetMethodID(jlz, "onInitMediaCodec", "(Ljava/lang/String;II[B[B)V");
+    this->jmid_harddecodepacket = jenv->GetMethodID(jlz, "hardDecodeAvPacket", "(I[B)V");
 }
 
 void NotifyApplication::notifyError(int type, int code, const char *msg) {
@@ -262,4 +264,48 @@ bool NotifyApplication::callSupportVideo(int type, const char *ffCodeName) {
         jvm->DetachCurrentThread();
     }
     return support;
+}
+
+void NotifyApplication::callInitMedaiCodec(int type, const char *mime, int width, int height,
+                                           int csd0Size, int csd1Size, uint8_t *csd0,
+                                           uint8_t *csd1) {
+    if (MAIN_THREAD == type) {
+        //不支持从主线程传递YUV数据
+    } else if (CHILD_THREAD == type) {
+        JNIEnv* env;
+        if (jvm->AttachCurrentThread(&env, 0) != JNI_OK) {
+            LOGE("NotifyApplication::callInitMedaiCodec get child jnienv wrong");
+            return;
+        }
+        jstring  mimeType = env->NewStringUTF(mime);
+        jbyteArray  jCsd0 = env->NewByteArray(csd0Size);
+        env->SetByteArrayRegion(jCsd0, 0 , csd0Size, reinterpret_cast<const jbyte *>(csd0));
+        jbyteArray  jCsd1 = env->NewByteArray(csd1Size);
+        env->SetByteArrayRegion(jCsd1, 0 , csd1Size, reinterpret_cast<const jbyte *>(csd1));
+
+        env->CallVoidMethod(jobj, jmid_initmediacodec, mimeType, width, height, jCsd0, jCsd1);
+
+        env->DeleteLocalRef(jCsd0);
+        env->DeleteLocalRef(jCsd1);
+        env->DeleteLocalRef(mimeType);
+        jvm->DetachCurrentThread();
+    }
+}
+
+void NotifyApplication::callHardDecodeAvPacket(int type, int size, uint8_t *data) {
+    if (MAIN_THREAD == type) {
+        //不支持从主线程传递YUV数据
+    } else if (CHILD_THREAD == type) {
+        JNIEnv* env;
+        if (jvm->AttachCurrentThread(&env, 0) != JNI_OK) {
+            LOGE("NotifyApplication::callHardDecodeAvPacket get child jnienv wrong");
+            return;
+        }
+
+        jbyteArray jData = env->NewByteArray(size);
+        env->SetByteArrayRegion(jData, 0, size, reinterpret_cast<const jbyte *>(data));
+        env->CallVoidMethod(jobj, jmid_harddecodepacket, size, jData);
+        env->DeleteLocalRef(jData);
+        jvm->DetachCurrentThread();
+    }
 }

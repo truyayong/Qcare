@@ -37,6 +37,8 @@ private:
     jmethodID jmid_error;
     jmethodID jmid_renderyuv;
     jmethodID jmid_supportvideo;
+    jmethodID jmid_initmediacodec;
+    jmethodID jmid_harddecodepacket;
 private:
     NotifyApplication();
 public:
@@ -57,6 +59,8 @@ public:
     void notifyError(int type, int code, const char* msg);
     void notifyRenderYUV(int type, int width, int height, uint8_t* fy, uint8_t* fu, uint8_t* fv);
     bool callSupportVideo(int type, const char* ffCodeName);
+    void callInitMedaiCodec(int type, const char* mime, int width, int height, int csd0Size, int csd1Size, uint8_t* csd0, uint8_t* csd1);
+    void callHardDecodeAvPacket(int type, int size, uint8_t* data);
 };
 
 

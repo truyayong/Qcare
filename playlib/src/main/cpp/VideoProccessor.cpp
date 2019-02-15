@@ -82,6 +82,7 @@ void VideoProccessor::hardDecode(AVPacket *avPacket) {
     }
     while (av_bsf_receive_packet(absCtx, avPacket) == 0) {
         LOGE("开始硬解码");
+        NotifyApplication::getIns()->callHardDecodeAvPacket(CHILD_THREAD, avPacket->size, avPacket->data);
         av_packet_free(&avPacket);
         av_free(avPacket);
         continue;
