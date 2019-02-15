@@ -8,6 +8,7 @@
 AvCodecProccessor::AvCodecProccessor() {
     LOGI("AvCodecProccessor::AvCodecProccessor");
     pthread_mutex_init(&prepareDecodeMutex, NULL);
+    pthread_mutex_init(&seekMutex, NULL);
 }
 
 AvCodecProccessor::~AvCodecProccessor() {
@@ -33,6 +34,7 @@ AvCodecProccessor::~AvCodecProccessor() {
     }
 
     pthread_mutex_destroy(&prepareDecodeMutex);
+    pthread_mutex_destroy(&seekMutex);
 }
 
 void *decodePrepareRunnable(void* data) {
@@ -206,7 +208,9 @@ void AvCodecProccessor::startDecoder() {
             continue;
         }
         AVPacket* avPacket = av_packet_alloc();
+        pthread_mutex_lock(&seekMutex);
         int ret = av_read_frame(pAVFormatCtx, avPacket);
+        pthread_mutex_unlock(&seekMutex);
         if (ret == 0) {
             if (avPacket->stream_index == mAudioStreamIndex) {
                 audioProccessor->pQueue->putAvPacket(avPacket);
@@ -267,6 +271,7 @@ void AvCodecProccessor::seek(int64_t progress) {
     if (second >= 0 && second <= PlaySession::getIns()->duration) {
         PlaySession::getIns()->bSeeking = true;
         int64_t rel = second * AV_TIME_BASE;
+        pthread_mutex_lock(&seekMutex);
         avformat_seek_file(pAVFormatCtx, -1, INT64_MIN, rel, INT64_MAX, 0);
         if (NULL != audioProccessor) {
             if (NULL != audioProccessor->pQueue) {
@@ -290,7 +295,7 @@ void AvCodecProccessor::seek(int64_t progress) {
             avcodec_flush_buffers(pVideoCodecCtx);
             pthread_mutex_unlock(&videoProccessor->codecMutex);
         }
-
+        pthread_mutex_unlock(&seekMutex);
         PlaySession::getIns()->bSeeking = false;
     }
 }

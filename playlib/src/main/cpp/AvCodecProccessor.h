@@ -40,6 +40,8 @@ public:
     VideoProccessor* videoProccessor = NULL;
     pthread_t prepareDecodeThread;
     pthread_mutex_t prepareDecodeMutex;
+    //seek同步锁
+    pthread_mutex_t seekMutex;
 
     //开始解码线程
     pthread_t startDecodeThread;
