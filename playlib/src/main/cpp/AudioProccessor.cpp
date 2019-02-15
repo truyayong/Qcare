@@ -6,9 +6,8 @@
 #include "AudioProccessor.h"
 
 
-AudioProccessor::AudioProccessor(AVCodecContext* pCodecCtx) {
+AudioProccessor::AudioProccessor() {
     pQueue = new PacketQueue();
-    pAVCodecCtx = pCodecCtx;
     pthread_mutex_init(&codecMutex, NULL);
 }
 
@@ -20,9 +19,6 @@ AudioProccessor::~AudioProccessor() {
     if (NULL != buffer) {
         av_free(buffer);
         buffer = NULL;
-    }
-    if (NULL != pAVCodecCtx) {
-        pAVCodecCtx = NULL;
     }
     pthread_mutex_destroy(&codecMutex);
 }
@@ -63,6 +59,12 @@ void AudioProccessor::stop() {
     if (NULL != pQueue && pQueue->size() > 0) {
         pQueue->clearQueue();
     }
+    if (NULL != pAVCodecCtx) {
+        avcodec_close(pAVCodecCtx);
+        avcodec_free_context(&pAVCodecCtx);
+        pAVCodecCtx = NULL;
+    }
+    pCodecPara = NULL;
     releaseSL();
 }
 

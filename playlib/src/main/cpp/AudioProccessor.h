@@ -29,7 +29,6 @@ using namespace soundtouch;
  */
 class AudioProccessor {
 private:
-    AVCodecContext* pAVCodecCtx = NULL;
     //opensl 引擎
     SLObjectItf engineObj = NULL;
     SLEngineItf engineItf = NULL;
@@ -47,6 +46,10 @@ private:
 
 
 public:
+    AVCodecContext* pAVCodecCtx = NULL;
+    int mStreamIndex = -1;
+    AVCodecParameters* pCodecPara = NULL;
+
     PacketQueue* pQueue = NULL;
     //开始播放线程
     pthread_t startPlayThread;
@@ -75,7 +78,7 @@ private:
     void calcCurrentClock(double time);
 
 public:
-    AudioProccessor(AVCodecContext* pCodecCtx);
+    AudioProccessor();
     virtual ~AudioProccessor();
 
     void start();

@@ -5,22 +5,17 @@
 #include "VideoProccessor.h"
 
 
-VideoProccessor::VideoProccessor(AVCodecContext* pCodecCtx) {
+VideoProccessor::VideoProccessor() {
     pQueue = new PacketQueue();
-    pAVCodecCtx = pCodecCtx;
     pthread_mutex_init(&codecMutex, NULL);
 }
 
 VideoProccessor::~VideoProccessor() {
     if (NULL != pQueue) {
-        pQueue->clearQueue();
         delete pQueue;
         pQueue = NULL;
     }
 
-    if (NULL != pAVCodecCtx) {
-        pAVCodecCtx = NULL;
-    }
     pthread_mutex_destroy(&codecMutex);
 }
 
@@ -80,8 +75,17 @@ void VideoProccessor::play() {
 }
 
 void VideoProccessor::hardDecode(AVPacket *avPacket) {
-    av_packet_free(&avPacket);
-    av_free(avPacket);
+    if (av_bsf_send_packet(absCtx, avPacket) != 0) {
+        av_packet_free(&avPacket);
+        av_free(avPacket);
+        avPacket = NULL;
+    }
+    while (av_bsf_receive_packet(absCtx, avPacket) == 0) {
+        LOGE("开始硬解码");
+        av_packet_free(&avPacket);
+        av_free(avPacket);
+        continue;
+    }
     avPacket = NULL;
 }
 
@@ -169,6 +173,20 @@ void VideoProccessor::stop() {
     if (NULL != pQueue && pQueue->size() > 0) {
         pQueue->clearQueue();
     }
+
+    if (NULL != absCtx) {
+        av_bsf_free(&absCtx);
+        absCtx = NULL;
+    }
+
+    if (NULL != pAVCodecCtx) {
+        pthread_mutex_lock(&codecMutex);
+        avcodec_close(pAVCodecCtx);
+        avcodec_free_context(&pAVCodecCtx);
+        pAVCodecCtx = NULL;
+        pthread_mutex_unlock(&codecMutex);
+    }
+    pCodecPara = NULL;
 }
 
 void VideoProccessor::calcuVideoClock(AVFrame* avFrame) {

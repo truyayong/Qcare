@@ -13,19 +13,6 @@ AvCodecProccessor::AvCodecProccessor() {
 
 AvCodecProccessor::~AvCodecProccessor() {
     LOGI("AvCodecProccessor::~AvCodecProccessor");
-    if (NULL != pAudioCodecCtx) {
-        avcodec_close(pAudioCodecCtx);
-        avcodec_free_context(&pAudioCodecCtx);
-        pAudioCodecCtx = NULL;
-    }
-    pAudioCodecPara = NULL;
-
-    if (NULL != pVideoCodecCtx) {
-        avcodec_close(pVideoCodecCtx);
-        avcodec_free_context(&pVideoCodecCtx);
-        pVideoCodecCtx = NULL;
-    }
-    pVideoCodecPara = NULL;
 
     if (NULL != pAVFormatCtx) {
         avformat_close_input(&pAVFormatCtx);
@@ -65,6 +52,8 @@ int avFormatOpenInterruptCallback(void* data) {
 void AvCodecProccessor::prepareDecoder() {
     LOGI("AvCodecProccessor::prepareDecoder");
     pthread_mutex_lock(&prepareDecodeMutex);
+    videoProccessor = new VideoProccessor();
+    audioProccessor = new AudioProccessor();
     av_register_all();
     avformat_network_init();
     pAVFormatCtx = avformat_alloc_context();
@@ -87,18 +76,16 @@ void AvCodecProccessor::prepareDecoder() {
         pthread_mutex_unlock(&prepareDecodeMutex);
         return;
     }
-    if (initAVCoderctx(&mAudioStreamIndex, &pAudioCodecCtx, &pAudioCodecPara, AVMEDIA_TYPE_AUDIO) != 0) {
+    if (initAVCoderctx(&audioProccessor->mStreamIndex, &audioProccessor->pAVCodecCtx, &audioProccessor->pCodecPara, AVMEDIA_TYPE_AUDIO) != 0) {
         PlaySession::getIns()->bExit = true;
         pthread_mutex_unlock(&prepareDecodeMutex);
         return;
     }
-    if (initAVCoderctx(&mVideoStreamIndex, &pVideoCodecCtx, &pVideoCodecPara, AVMEDIA_TYPE_VIDEO) != 0) {
+    if (initAVCoderctx(&videoProccessor->mStreamIndex, &videoProccessor->pAVCodecCtx, &videoProccessor->pCodecPara, AVMEDIA_TYPE_VIDEO) != 0) {
         PlaySession::getIns()->bExit = true;
         pthread_mutex_unlock(&prepareDecodeMutex);
         return;
     }
-    audioProccessor = new AudioProccessor(pAudioCodecCtx);
-    videoProccessor = new VideoProccessor(pVideoCodecCtx);
     pthread_mutex_unlock(&prepareDecodeMutex);
     NotifyApplication::getIns()->notifyPrepared(CHILD_THREAD);
     LOGI("AvCodecProccessor::prepareDecoder end");
@@ -196,6 +183,7 @@ void AvCodecProccessor::startDecoder() {
     if (NotifyApplication::getIns()->callSupportVideo(CHILD_THREAD, codecName)) {
         LOGE("当前设备支持硬解码当前视频");
         videoProccessor->codecType = VideoProccessor::CODEC_MEDIACODEC;
+        initBitStreamFilter(codecName);
     }
     while (!PlaySession::getIns()->bExit && NULL != audioProccessor
            && NULL != pAVFormatCtx && NULL != videoProccessor) {
@@ -212,9 +200,9 @@ void AvCodecProccessor::startDecoder() {
         int ret = av_read_frame(pAVFormatCtx, avPacket);
         pthread_mutex_unlock(&seekMutex);
         if (ret == 0) {
-            if (avPacket->stream_index == mAudioStreamIndex) {
+            if (avPacket->stream_index == audioProccessor->mStreamIndex) {
                 audioProccessor->pQueue->putAvPacket(avPacket);
-            } else if (avPacket->stream_index == mVideoStreamIndex) {
+            } else if (avPacket->stream_index == videoProccessor->mStreamIndex) {
                 videoProccessor->pQueue->putAvPacket(avPacket);
             } else {
                 av_packet_free(&avPacket);
@@ -239,6 +227,40 @@ void AvCodecProccessor::startDecoder() {
         }
     }
     LOGI("AvCodecProccessor::startDecoder end");
+}
+
+void AvCodecProccessor::initBitStreamFilter(const char *codecName) {
+    if (strcasecmp(codecName, "h264") == 0) {
+        bsFilter = av_bsf_get_by_name("h264_mp4toannexb");
+    } else if (strcasecmp(codecName, "h265") == 0) {
+        bsFilter = av_bsf_get_by_name("hevc_mp4toannexb");
+    }
+
+    if (NULL == bsFilter) {
+        videoProccessor->codecType = VideoProccessor::CODEC_YUV;
+        return;
+    }
+
+    if (av_bsf_alloc(bsFilter, &videoProccessor->absCtx) != 0) {
+        videoProccessor->codecType = VideoProccessor::CODEC_YUV;
+        return;
+    }
+
+    if (avcodec_parameters_copy(videoProccessor->absCtx->par_in, videoProccessor->pCodecPara) < 0) {
+        videoProccessor->codecType = VideoProccessor::CODEC_YUV;
+        av_bsf_free(&videoProccessor->absCtx);
+        videoProccessor->absCtx = NULL;
+        return;
+    }
+
+    if (av_bsf_init(videoProccessor->absCtx) != 0) {
+        videoProccessor->codecType = VideoProccessor::CODEC_YUV;
+        av_bsf_free(&videoProccessor->absCtx);
+        videoProccessor->absCtx = NULL;
+        return;
+    }
+
+    videoProccessor->absCtx->time_base_in = PlaySession::getIns()->videoTimeBase;
 }
 
 int AvCodecProccessor::getSampleRate() {
@@ -281,7 +303,7 @@ void AvCodecProccessor::seek(int64_t progress) {
             PlaySession::getIns()->lastClock = 0;
 
             pthread_mutex_lock(&audioProccessor->codecMutex);
-            avcodec_flush_buffers(pAudioCodecCtx);
+            avcodec_flush_buffers(audioProccessor->pAVCodecCtx);
             pthread_mutex_unlock(&audioProccessor->codecMutex);
         }
 
@@ -292,7 +314,7 @@ void AvCodecProccessor::seek(int64_t progress) {
             PlaySession::getIns()->videoClock = 0;
 
             pthread_mutex_lock(&videoProccessor->codecMutex);
-            avcodec_flush_buffers(pVideoCodecCtx);
+            avcodec_flush_buffers(videoProccessor->pAVCodecCtx);
             pthread_mutex_unlock(&videoProccessor->codecMutex);
         }
         pthread_mutex_unlock(&seekMutex);
@@ -337,5 +359,6 @@ void AvCodecProccessor::setSpeed(float speed) {
         audioProccessor->setSpeed(speed);
     }
 }
+
 
 

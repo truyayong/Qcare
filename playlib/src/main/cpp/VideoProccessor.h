@@ -20,6 +20,8 @@ private:
 public:
     const static int CODEC_YUV = 0;//支持软解码
     const static int CODEC_MEDIACODEC = 1;//支持硬解码
+    int mStreamIndex = -1;
+    AVCodecParameters* pCodecPara = NULL;
     AVCodecContext* pAVCodecCtx = NULL;
     PacketQueue* pQueue = NULL;
     //开始播放线程
@@ -28,9 +30,12 @@ public:
     //解码器在多线程下需要同步
     pthread_mutex_t codecMutex;
 
+    //解码类型：0 软解码 1 硬解码
     int codecType = CODEC_YUV;
+
+    AVBSFContext *absCtx = NULL;
 public:
-    VideoProccessor(AVCodecContext* pCodecCtx);
+    VideoProccessor();
     virtual ~VideoProccessor();
 
     void start();
