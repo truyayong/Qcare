@@ -26,7 +26,7 @@ AudioProccessor::~AudioProccessor() {
 void* startAudioPlayRunnable(void* data) {
     AudioProccessor* pProccessor = (AudioProccessor*) data;
     pProccessor->play();
-    pthread_exit(&pProccessor->startPlayThread);
+    return 0;
 }
 
 void AudioProccessor::start() {
@@ -54,6 +54,10 @@ void AudioProccessor::resume() {
 
 void AudioProccessor::stop() {
     LOGI("AudioProccessor::stop");
+    if (NULL != pQueue) {
+        pQueue->wakeUpQueue();
+    }
+    pthread_join(startPlayThread, NULL);
     PlaySession::getIns()->playState = PLAY_STATE_STOPPED;
     setPlayState(PlaySession::getIns()->playState);
     if (NULL != pQueue && pQueue->size() > 0) {

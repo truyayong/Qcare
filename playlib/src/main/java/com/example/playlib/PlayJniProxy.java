@@ -95,7 +95,6 @@ public class PlayJniProxy {
     }
 
     public void stop() {
-        releaseMediaCodec();
         native_stop();
     }
 
@@ -196,6 +195,7 @@ public class PlayJniProxy {
      */
     private void onStopped() {
         Log.i(TAG, "qmusic onStopped");
+        releaseMediaCodec();
         if (mPlayProgressCallBack != null) {
             mPlayProgressCallBack.onStopped();
         }
@@ -306,26 +306,36 @@ public class PlayJniProxy {
     public void hardDecodeAvPacket(int size, byte[] data) {
         Log.d(TAG, "hardDecodeAvPacket size : " + size + " datasize : " + data.length);
         if (mSurface != null && size > 0 && data != null) {
-            int inputBufferIndex = mMediaCodec.dequeueInputBuffer(10);
-            if (inputBufferIndex >= 0) {
-                ByteBuffer byteBuffer = mMediaCodec.getInputBuffers()[inputBufferIndex];
-                byteBuffer.clear();
-                byteBuffer.put(data);
-                mMediaCodec.queueInputBuffer(inputBufferIndex, 0, size, 0, 0);
+            try {
+                int inputBufferIndex = mMediaCodec.dequeueInputBuffer(10);
+                if (inputBufferIndex >= 0) {
+                    ByteBuffer byteBuffer = mMediaCodec.getInputBuffers()[inputBufferIndex];
+                    byteBuffer.clear();
+                    byteBuffer.put(data);
+                    mMediaCodec.queueInputBuffer(inputBufferIndex, 0, size, 0, 0);
+                }
+                int outputBufferIndex = mMediaCodec.dequeueOutputBuffer(mBufferinfo, 10);
+                while (outputBufferIndex >= 0) {
+                    mMediaCodec.releaseOutputBuffer(outputBufferIndex, true);
+                    outputBufferIndex = mMediaCodec.dequeueOutputBuffer(mBufferinfo, 10);
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "hardDecodeAvPacket : ", e);
             }
-            int outputBufferIndex = mMediaCodec.dequeueOutputBuffer(mBufferinfo, 10);
-            while (outputBufferIndex >= 0) {
-                mMediaCodec.releaseOutputBuffer(outputBufferIndex, true);
-                outputBufferIndex = mMediaCodec.dequeueOutputBuffer(mBufferinfo, 10);
-            }
+
         }
     }
 
     private void releaseMediaCodec() {
         if (mMediaCodec != null) {
-            mMediaCodec.flush();
-            mMediaCodec.start();
-            mMediaCodec.release();
+            try {
+                mMediaCodec.flush();
+                mMediaCodec.stop();
+                mMediaCodec.release();
+            } catch (Exception e) {
+                Log.e(TAG, " releaseMediaCodec : ", e);
+            }
+
 
             mMediaCodec = null;
             mMediaFormat = null;

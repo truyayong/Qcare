@@ -66,3 +66,7 @@ void PacketQueue::clearQueue() {
     }
     pthread_mutex_unlock(&mMutex);
 }
+
+void PacketQueue::wakeUpQueue() {
+    pthread_cond_signal(&mCond);
+}

@@ -160,7 +160,7 @@ void* startDecodeRunnable(void* data) {
     if (NULL != pCoder) {
         pCoder->startDecoder();
     }
-    pthread_exit(&pCoder->startDecodeThread);
+    return 0;
 }
 
 
@@ -275,6 +275,7 @@ int AvCodecProccessor::getSampleRate() {
 void AvCodecProccessor::stop() {
     LOGI("AvCodecProccessor::stop");
     PlaySession::getIns()->bExit = true;
+    pthread_join(startDecodeThread, NULL);
     if (NULL != audioProccessor) {
         audioProccessor->stop();
         delete audioProccessor;

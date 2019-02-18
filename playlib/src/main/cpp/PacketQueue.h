@@ -28,6 +28,7 @@ public:
     int getAvPacket(AVPacket* packet);
     int size();
     void clearQueue();
+    void wakeUpQueue();
 };
 
 

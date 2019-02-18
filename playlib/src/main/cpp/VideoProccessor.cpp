@@ -22,7 +22,7 @@ VideoProccessor::~VideoProccessor() {
 void* startVedioPlayRunnable(void* data) {
     VideoProccessor* pProccessor = static_cast<VideoProccessor*>(data);
     pProccessor->play();
-    pthread_exit(&pProccessor->startPlayThread);
+    return 0;
 }
 
 void VideoProccessor::start() {
@@ -73,6 +73,14 @@ void VideoProccessor::play() {
 }
 
 void VideoProccessor::hardDecode(AVPacket *avPacket) {
+    if (NULL == avPacket) {
+        LOGE("hardDecode NULL == avPacket");
+        return;
+    }
+    if (NULL == absCtx) {
+        LOGE("hardDecode NULL == absCtx");
+        return;
+    }
     //音视频同步sleep
     calcuVideoClock(NULL, avPacket);
     av_usleep(PlaySession::getIns()->getVideoDelayTime() * 1000000);
@@ -80,6 +88,7 @@ void VideoProccessor::hardDecode(AVPacket *avPacket) {
         av_packet_free(&avPacket);
         av_free(avPacket);
         avPacket = NULL;
+        return;
     }
     while (av_bsf_receive_packet(absCtx, avPacket) == 0) {
         NotifyApplication::getIns()->callHardDecodeAvPacket(CHILD_THREAD, avPacket->size, avPacket->data);
@@ -171,6 +180,14 @@ void VideoProccessor::softDecode(AVPacket *avPacket) {
 }
 
 void VideoProccessor::stop() {
+    if (NULL != pQueue) {
+        pQueue->wakeUpQueue();
+    }
+    pthread_join(startPlayThread, NULL);
+    release();
+}
+
+void VideoProccessor::release() {
     if (NULL != pQueue && pQueue->size() > 0) {
         pQueue->clearQueue();
     }
@@ -208,5 +225,6 @@ void VideoProccessor::calcuVideoClock(AVFrame* avFrame, AVPacket* avPacket) {
         PlaySession::getIns()->videoClock = pts;
     }
 }
+
 
 

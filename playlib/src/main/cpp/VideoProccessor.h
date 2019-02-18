@@ -48,6 +48,8 @@ private:
     void softDecode(AVPacket* avPacket);
     //硬解码
     void hardDecode(AVPacket* avPacket);
+
+    void release();
 };
 
 
