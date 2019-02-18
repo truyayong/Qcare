@@ -43,7 +43,7 @@ public:
     void stop();
 
 private:
-    void calcuVideoClock(AVFrame* avFrame);
+    void calcuVideoClock(AVFrame* avFrame, AVPacket* avPacket);
     //软解码
     void softDecode(AVPacket* avPacket);
     //硬解码

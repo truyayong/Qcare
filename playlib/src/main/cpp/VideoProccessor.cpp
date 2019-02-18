@@ -65,23 +65,23 @@ void VideoProccessor::play() {
         }
 
         if (codecType == CODEC_MEDIACODEC) {
-            LOGE("硬解码视频");
             hardDecode(avPacket);
         } else {
-            LOGE("软解码解码视频");
             softDecode(avPacket);
         }
     }
 }
 
 void VideoProccessor::hardDecode(AVPacket *avPacket) {
+    //音视频同步sleep
+    calcuVideoClock(NULL, avPacket);
+    av_usleep(PlaySession::getIns()->getVideoDelayTime() * 1000000);
     if (av_bsf_send_packet(absCtx, avPacket) != 0) {
         av_packet_free(&avPacket);
         av_free(avPacket);
         avPacket = NULL;
     }
     while (av_bsf_receive_packet(absCtx, avPacket) == 0) {
-        LOGE("开始硬解码");
         NotifyApplication::getIns()->callHardDecodeAvPacket(CHILD_THREAD, avPacket->size, avPacket->data);
         av_packet_free(&avPacket);
         av_free(avPacket);
@@ -115,7 +115,7 @@ void VideoProccessor::softDecode(AVPacket *avPacket) {
     }
 
     //音视频同步sleep
-    calcuVideoClock(avFrame);
+    calcuVideoClock(avFrame, NULL);
     av_usleep(PlaySession::getIns()->getVideoDelayTime() * 1000000);
 
     if (avFrame->format == AV_PIX_FMT_YUV420P) {
@@ -190,11 +190,16 @@ void VideoProccessor::stop() {
     pCodecPara = NULL;
 }
 
-void VideoProccessor::calcuVideoClock(AVFrame* avFrame) {
-    if (NULL == avFrame) {
+void VideoProccessor::calcuVideoClock(AVFrame* avFrame, AVPacket* avPacket) {
+    if (NULL == avFrame && NULL == avPacket) {
         return;
     }
-    double pts = av_frame_get_best_effort_timestamp(avFrame);
+    double pts = 0.0;
+    if (NULL != avFrame) {
+        pts = av_frame_get_best_effort_timestamp(avFrame);
+    } else if(NULL != avPacket) {
+        pts = avPacket->pts;
+    }
     if (pts == AV_NOPTS_VALUE) {
         pts = 0;
     }

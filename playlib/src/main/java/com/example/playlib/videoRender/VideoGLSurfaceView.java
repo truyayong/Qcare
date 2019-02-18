@@ -25,6 +25,13 @@ public class VideoGLSurfaceView extends GLSurfaceView {
         mRender = new VideoRender(context);
         setRenderer(mRender);
         setRenderMode(GLSurfaceView.RENDERMODE_WHEN_DIRTY);
+
+        mRender.setOnRenderListener(new VideoRender.OnRenderListener() {
+            @Override
+            public void onRender() {
+                requestRender();
+            }
+        });
     }
 
     public void refreshData(int width, int height, byte[] y, byte[] u, byte[] v) {
@@ -33,5 +40,9 @@ public class VideoGLSurfaceView extends GLSurfaceView {
             mRender.refreshYuvRenderData(width, height, y, u, v);
             requestRender();
         }
+    }
+
+    public VideoRender getRender() {
+        return mRender;
     }
 }

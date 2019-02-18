@@ -4,6 +4,7 @@ import android.os.Environment;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.Surface;
 import android.view.View;
 import android.widget.ProgressBar;
 import android.widget.SeekBar;
@@ -12,6 +13,7 @@ import android.widget.Toast;
 
 import com.example.playlib.PlayJniProxy;
 import com.example.playlib.videoRender.VideoGLSurfaceView;
+import com.example.playlib.videoRender.VideoRender;
 
 import java.io.File;
 
@@ -83,6 +85,12 @@ public class MainActivity extends AppCompatActivity {
             }
         });
         mGlVideoView = (VideoGLSurfaceView) findViewById(R.id.gl_video);
+        mGlVideoView.getRender().setOnSurfaceCreateListener(new VideoRender.OnSurfaceCreateListener() {
+            @Override
+            public void onSurfaceCreate(Surface surface) {
+                mPlayJniProxy.setSurface(surface);
+            }
+        });
         mTvProgress = (TextView) findViewById(R.id.tv_progress);
     }
 
@@ -168,7 +176,13 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public void onRenderYUV(int width, int height, byte[] y, byte[] u, byte[] v) {
+                mGlVideoView.getRender().setRenderType(VideoRender.RENDER_YUV);
                 mGlVideoView.refreshData(width, height, y, u, v);
+            }
+
+            @Override
+            public void onInitMediaCodec() {
+                mGlVideoView.getRender().setRenderType(VideoRender.RENDER_MEDIACODEC);
             }
         });
     }

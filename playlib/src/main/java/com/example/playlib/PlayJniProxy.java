@@ -5,6 +5,7 @@ import android.media.MediaFormat;
 import android.util.Log;
 import android.view.Surface;
 
+import com.example.playlib.videoRender.VideoGLSurfaceView;
 import com.example.playlib.videoRender.VideoSupportUtil;
 
 import java.io.IOException;
@@ -52,6 +53,10 @@ public class PlayJniProxy {
      *暴露给java层的api
      *
      */
+
+    public void setSurface(Surface surface) {
+        this.mSurface = surface;
+    }
     public void prepare() {
         prepare(mSource, mVolume,mChannelLayout);
     }
@@ -90,6 +95,7 @@ public class PlayJniProxy {
     }
 
     public void stop() {
+        releaseMediaCodec();
         native_stop();
     }
 
@@ -281,9 +287,14 @@ public class PlayJniProxy {
                 mMediaFormat.setByteBuffer("csd-0", ByteBuffer.wrap(csd0));
                 mMediaFormat.setByteBuffer("csd-1", ByteBuffer.wrap(csd1));
                 Log.e(TAG, "mediaFormat : " + mMediaFormat.toString());
-                mMediaCodec = MediaCodec.createByCodecName(mime);
+                mMediaCodec = MediaCodec.createDecoderByType(mime);
+
+                mBufferinfo = new MediaCodec.BufferInfo();
                 mMediaCodec.configure(mMediaFormat, mSurface, null, 0);
                 mMediaCodec.start();
+                if (mPlayProgressCallBack != null) {
+                    mPlayProgressCallBack.onInitMediaCodec();
+                }
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -293,7 +304,7 @@ public class PlayJniProxy {
     }
 
     public void hardDecodeAvPacket(int size, byte[] data) {
-        Log.e(TAG, "hardDecodeAvPacket size : " + size + " datasize : " + data.length);
+        Log.d(TAG, "hardDecodeAvPacket size : " + size + " datasize : " + data.length);
         if (mSurface != null && size > 0 && data != null) {
             int inputBufferIndex = mMediaCodec.dequeueInputBuffer(10);
             if (inputBufferIndex >= 0) {
@@ -307,6 +318,18 @@ public class PlayJniProxy {
                 mMediaCodec.releaseOutputBuffer(outputBufferIndex, true);
                 outputBufferIndex = mMediaCodec.dequeueOutputBuffer(mBufferinfo, 10);
             }
+        }
+    }
+
+    private void releaseMediaCodec() {
+        if (mMediaCodec != null) {
+            mMediaCodec.flush();
+            mMediaCodec.start();
+            mMediaCodec.release();
+
+            mMediaCodec = null;
+            mMediaFormat = null;
+            mBufferinfo = null;
         }
     }
 
@@ -327,5 +350,6 @@ public class PlayJniProxy {
         void onError(int code, String msg);
         void onPlayProgress(float currentProgress, int Total);
         void onRenderYUV(int width, int height, byte[] y, byte[] u, byte[] v);
+        void onInitMediaCodec();
     }
 }
